@@ -274,3 +274,4 @@ netmon
   2s, routes 10s) and publish snapshots, so the tui never blocks on io
 - dns and traceroute run as separate goroutines; the ui stays responsive
 - the benchmark compares your configured resolvers plus the ones you add
+- copilot is used for fixing small issues, writing documentation, etc.
