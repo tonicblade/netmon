@@ -1,0 +1,46 @@
+# netmon configuration
+#
+# All values are optional — the built-in defaults match this file.
+# Load it with:  netmon --config configs/example.yaml
+
+# How often each collector samples.
+refresh:
+  interface: 250ms   # interface counters / bandwidth graph
+  ping: 1s           # latency probe interval
+  connections: 2s    # socket table
+  routes: 10s        # routing table
+
+# Latency probe targets. The default gateway is always added first.
+targets:
+  - name: Cloudflare
+    address: 1.1.1.1
+  - name: Google
+    address: 8.8.8.8
+  - name: Home Router
+    address: 192.168.4.1
+    port: 80        # optional TCP fallback port for this target
+
+# In-memory graph history (the graph time range selector goes up to 1h in the TUI).
+graph:
+  history: 5m
+
+# Alert thresholds. Set a value to 0 to disable that alert.
+alerts:
+  latency_ms: 150        # warn when a target's average RTT exceeds this
+  packet_loss_pct: 5     # warn when loss exceeds this
+  jitter_ms: 30          # warn when jitter exceeds this
+  bandwidth_drop_pct: 50 # warn when throughput drops this much below its 60s average
+  webhook: ""            # optional Discord/Slack-style JSON webhook URL
+  log_file: ""           # optional path to append alerts to
+
+# Public resolvers used by the TUI benchmark (b) and the `dns` command.
+dns:
+  resolvers:
+    - 1.1.1.1
+    - 8.8.8.8
+    - 9.9.9.9
+
+ping:
+  method: auto     # auto (raw ICMP -> UDP dgram -> TCP), icmp, or tcp
+  port: 443        # port used by the TCP fallback
+  timeout: 1s
