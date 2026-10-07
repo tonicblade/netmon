@@ -1,5 +1,3 @@
-// Package types defines the shared vocabulary used by collectors, the TUI
-// and the CLI. Every layer above the platform layer speaks these structs.
 package types
 
 import (
@@ -8,20 +6,17 @@ import (
 	"time"
 )
 
-// DataPoint is a single timestamped measurement.
 type DataPoint struct {
 	Time  time.Time
 	Value float64
 }
 
-// TimeSeries is a bounded in-memory rolling buffer used for graphing.
-// It is safe for concurrent use: collectors append, the TUI reads.
 type TimeSeries struct {
 	mu   sync.Mutex
 	name string
 	unit string
 	pts  []DataPoint
-	max  int // capacity in points
+	max  int
 }
 
 func NewTimeSeries(name, unit string, maxPoints int) *TimeSeries {
@@ -42,15 +37,13 @@ func (ts *TimeSeries) AppendAt(t time.Time, v float64) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	if len(ts.pts) >= ts.max {
-		// shift: O(n) but n is bounded (<= a few thousand)
+
 		copy(ts.pts, ts.pts[1:])
 		ts.pts = ts.pts[:len(ts.pts)-1]
 	}
 	ts.pts = append(ts.pts, DataPoint{Time: t, Value: v})
 }
 
-// Window returns points within the last d, always at least 2 points when
-// available (so a graph has something to draw).
 func (ts *TimeSeries) Window(d time.Duration) []DataPoint {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
@@ -85,7 +78,6 @@ func (ts *TimeSeries) Len() int {
 	return len(ts.pts)
 }
 
-// Peak returns the maximum value within d.
 func (ts *TimeSeries) Peak(d time.Duration) float64 {
 	var max float64
 	for _, p := range ts.Window(d) {
@@ -96,7 +88,6 @@ func (ts *TimeSeries) Peak(d time.Duration) float64 {
 	return max
 }
 
-// Avg returns the arithmetic mean value within d.
 func (ts *TimeSeries) Avg(d time.Duration) float64 {
 	pts := ts.Window(d)
 	if len(pts) == 0 {
@@ -109,9 +100,6 @@ func (ts *TimeSeries) Avg(d time.Duration) float64 {
 	return s / float64(len(pts))
 }
 
-// ---- interfaces ----
-
-// InterfaceInfo is static-ish description of one NIC.
 type InterfaceInfo struct {
 	Name   string   `json:"name"`
 	Index  int      `json:"index"`
@@ -119,13 +107,12 @@ type InterfaceInfo struct {
 	MAC    string   `json:"mac"`
 	IsUp   bool     `json:"is_up"`
 	IsLoop bool     `json:"is_loopback"`
-	Kind   string   `json:"kind"`  // eth, wifi, virt, loop, tun, other
-	Speed  uint64   `json:"speed"` // bits/sec, 0 unknown
+	Kind   string   `json:"kind"`
+	Speed  uint64   `json:"speed"`
 	Addr4  []string `json:"addr4"`
 	Addr6  []string `json:"addr6"`
 }
 
-// InterfaceStats is one raw sample of OS counters for an interface.
 type InterfaceStats struct {
 	Name      string    `json:"name"`
 	RxBytes   uint64    `json:"rx_bytes"`
@@ -139,7 +126,6 @@ type InterfaceStats struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// InterfaceRate is a derived rates view (bytes/packets per second).
 type InterfaceRate struct {
 	Stats           InterfaceStats `json:"stats"`
 	RxBytesPerSec   float64        `json:"rx_bytes_per_sec"`
@@ -148,8 +134,6 @@ type InterfaceRate struct {
 	TxPacketsPerSec float64        `json:"tx_packets_per_sec"`
 }
 
-// InterfaceSnapshot pairs one interface's static info, latest counters and
-// derived rates — exactly what a dashboard row needs.
 type InterfaceSnapshot struct {
 	Info     InterfaceInfo  `json:"info"`
 	Counters InterfaceStats `json:"counters"`
@@ -159,10 +143,8 @@ type InterfaceSnapshot struct {
 	TxPps    float64        `json:"tx_pps"`
 }
 
-// ---- connections ----
-
 type Connection struct {
-	Proto   string `json:"proto"` // TCP, TCP6, UDP, UDP6
+	Proto   string `json:"proto"`
 	Local   string `json:"local"`
 	Remote  string `json:"remote"`
 	State   string `json:"state"`
@@ -172,39 +154,32 @@ type Connection struct {
 	TxBytes uint64 `json:"tx_bytes,omitempty"`
 }
 
-// ---- routes ----
-
 type Route struct {
 	Destination string `json:"destination"`
 	Gateway     string `json:"gateway"`
 	Genmask     string `json:"genmask"`
 	Metric      int    `json:"metric"`
 	Iface       string `json:"iface"`
-	Family      string `json:"family"` // IPv4, IPv6
+	Family      string `json:"family"`
 	Flags       string `json:"flags,omitempty"`
 	Default     bool   `json:"default"`
 }
 
-// ---- ping / latency ----
-
-// PingTarget is one configured latency probe destination.
 type PingTarget struct {
 	Name    string `yaml:"name" json:"name"`
 	Address string `yaml:"address" json:"address"`
-	Port    int    `yaml:"port,omitempty" json:"port,omitempty"` // TCP fallback port
+	Port    int    `yaml:"port,omitempty" json:"port,omitempty"`
 }
 
-// PingSample is one probe result.
 type PingSample struct {
 	Time time.Time
-	RTT  float64 // ms, negative means lost
+	RTT  float64
 }
 
-// PingStats is aggregate statistics for one target.
 type PingStats struct {
-	Name    string    `json:"name"`    // display name
-	Address string    `json:"address"` // ip or hostname probed
-	Method  string    `json:"method"`  // icmp, tcp
+	Name    string    `json:"name"`
+	Address string    `json:"address"`
+	Method  string    `json:"method"`
 	Sent    int       `json:"sent"`
 	Recv    int       `json:"received"`
 	Lost    int       `json:"lost"`
@@ -218,8 +193,6 @@ type PingStats struct {
 	LastOK  bool      `json:"last_ok"`
 	Updated time.Time `json:"updated"`
 }
-
-// ---- traceroute ----
 
 type Hop struct {
 	Num      int       `json:"num"`
@@ -235,10 +208,7 @@ type Hop struct {
 	LastSeen time.Time `json:"last_seen"`
 }
 
-// Clone returns a deep copy of a hop (including no samples today).
 func (h Hop) Clone() Hop { return h }
-
-// ---- DNS ----
 
 type DNSRecord struct {
 	Name  string `json:"name"`
@@ -264,9 +234,6 @@ type DNSBenchmarkRow struct {
 	Error  string  `json:"error,omitempty"`
 }
 
-// ---- alerts / events ----
-
-// Level classifies timeline events and alerts.
 type Level uint8
 
 const (
@@ -289,7 +256,6 @@ func (l Level) String() string {
 	}
 }
 
-// Event is one entry in the network event timeline.
 type Event struct {
 	Time   time.Time `json:"time"`
 	Level  Level     `json:"level"`
@@ -299,28 +265,24 @@ type Event struct {
 
 type Alert struct {
 	Time   time.Time `json:"time"`
-	Level  string    `json:"level"` // warn, error, info, ok
+	Level  string    `json:"level"`
 	Title  string    `json:"title"`
 	Detail string    `json:"detail"`
 }
 
 type AlertRule struct {
-	LatencyMS        float64 // warn when avg latency above this
-	LossPct          float64 // warn when packet loss above this
-	JitterMS         float64 // warn when jitter above this
-	BandwidthDropPct float64 // warn when bandwidth drops this much below baseline
+	LatencyMS        float64
+	LossPct          float64
+	JitterMS         float64
+	BandwidthDropPct float64
 }
 
-// ---- health ----
-
-// Health is the Net Quality Index breakdown (heuristic, see README).
 type Health struct {
 	Score     int            `json:"score"`
 	Parts     map[string]int `json:"parts"`
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
-// HostInfo describes the running host for the dashboard header.
 type HostInfo struct {
 	Hostname string `json:"hostname"`
 	OS       string `json:"os"`
@@ -328,16 +290,12 @@ type HostInfo struct {
 	Uptime   string `json:"uptime"`
 }
 
-// ---- statistics helpers ----
-
-// Clone returns a deep copy of ping statistics.
 func (p PingStats) Clone() PingStats {
 	c := p
-	// no reference fields today; kept for safety as the struct evolves
+
 	return c
 }
 
-// Avg arithmetic mean of a sample set.
 func Avg(v []float64) float64 {
 	if len(v) == 0 {
 		return 0
@@ -349,7 +307,6 @@ func Avg(v []float64) float64 {
 	return s / float64(len(v))
 }
 
-// Min smallest sample.
 func Min(v []float64) float64 {
 	if len(v) == 0 {
 		return 0
@@ -363,7 +320,6 @@ func Min(v []float64) float64 {
 	return m
 }
 
-// Max largest sample.
 func Max(v []float64) float64 {
 	if len(v) == 0 {
 		return 0
@@ -377,7 +333,6 @@ func Max(v []float64) float64 {
 	return m
 }
 
-// StdDev population standard deviation.
 func StdDev(v []float64) float64 {
 	if len(v) < 2 {
 		return 0
@@ -391,7 +346,6 @@ func StdDev(v []float64) float64 {
 	return math.Sqrt(ss / float64(len(v)))
 }
 
-// Jitter RFC 3550-style smoothed mean absolute difference between samples.
 func Jitter(v []float64) float64 {
 	if len(v) < 2 {
 		return 0

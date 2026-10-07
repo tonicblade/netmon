@@ -1,4 +1,3 @@
-// Package tui is the Bubble Tea interface: a btop-style live dashboard.
 package tui
 
 import (
@@ -17,7 +16,6 @@ import (
 	"netmon/pkg/types"
 )
 
-// Tabs.
 const (
 	tabDashboard = iota
 	tabInterfaces
@@ -43,7 +41,6 @@ var graphModes = []string{"RX + TX", "RX", "TX"}
 
 var dnsTypes = []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS"}
 
-// Input modes.
 type inputMode int
 
 const (
@@ -53,7 +50,6 @@ const (
 	inputTrace
 )
 
-// Messages.
 type (
 	tickMsg      time.Time
 	dnsDoneMsg   struct{ res types.DNSResult }
@@ -65,7 +61,6 @@ type (
 	traceDoneMsg struct{ err error }
 )
 
-// Model is the root application state.
 type Model struct {
 	mon *collector.Monitor
 	cfg *config.Config
@@ -78,7 +73,7 @@ type Model struct {
 	graphModeIdx  int
 
 	cursor    [tabCount]int
-	offset    [tabCount]int // list scroll offset
+	offset    [tabCount]int
 	filters   [tabCount]string
 	filterTab int
 
@@ -91,16 +86,14 @@ type Model struct {
 	status   string
 	statusAt time.Time
 
-	// DNS tab
 	dnsRes          types.DNSResult
 	dnsLoading      bool
 	dnsBench        []types.DNSBenchmarkRow
 	dnsBenchLoaded  bool
 	dnsBenchLoading bool
 	dnsTypeIdx      int
-	dnsServer       string // "" = system
+	dnsServer       string
 
-	// Trace tab
 	traceTarget  string
 	traceHops    []types.Hop
 	traceRunning bool
@@ -110,7 +103,6 @@ type Model struct {
 	traceCancel  context.CancelFunc
 }
 
-// New creates the TUI model.
 func New(ctx context.Context, mon *collector.Monitor, cfg *config.Config) Model {
 	ti := textinput.New()
 	ti.CharLimit = 128
@@ -218,10 +210,8 @@ func (m *Model) setStatus(s string) {
 	m.statusAt = time.Now()
 }
 
-// ---- key handling ----
-
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// text input active
+
 	if m.mode != inputNone {
 		switch msg.String() {
 		case "esc":
@@ -434,8 +424,6 @@ func nextDNSServer(cur string, resolvers []string) string {
 	return ""
 }
 
-// ---- helpers shared by views ----
-
 func (m Model) listLen(tab int) int {
 	switch tab {
 	case tabInterfaces:
@@ -468,7 +456,6 @@ func (m *Model) moveCursor(tab, delta int) {
 	m.clampOffset(tab)
 }
 
-// clampOffset keeps the cursor inside the scroll window of height rows.
 func (m *Model) clampOffset(tab int) {
 	rows := m.viewportRows(tab)
 	if rows <= 0 {
@@ -486,7 +473,7 @@ func (m *Model) clampOffset(tab int) {
 }
 
 func (m Model) viewportRows(tab int) int {
-	// approximate: list views get the body height minus chrome
+
 	body := m.height - 2
 	switch tab {
 	case tabConnections:
@@ -505,8 +492,6 @@ func (m Model) viewportRows(tab int) int {
 func (m Model) activeFilter(tab int) string {
 	return m.filters[tab]
 }
-
-// ---- commands ----
 
 func runDNS(m Model, name string) tea.Cmd {
 	q := network.DNSQuery{
@@ -553,8 +538,6 @@ func (m Model) startTrace(target string) (tea.Model, tea.Cmd) {
 	)
 }
 
-// ---- connections filtering / sorting ----
-
 func (m Model) filteredConns() []types.Connection {
 	filter := strings.ToLower(strings.TrimSpace(m.filters[tabConnections]))
 	conns := m.snap.Conns
@@ -589,8 +572,6 @@ func (m *Model) connSortNext() {
 	idx := m.connSortIndex()
 	m.connSort = connSortKeys[(idx+1)%len(connSortKeys)]
 }
-
-// ---- view ----
 
 func (m Model) View() string {
 	if m.width == 0 || m.height == 0 {
@@ -650,7 +631,6 @@ func (m Model) renderHeader() string {
 
 	line := strings.Join(parts, "  ")
 
-	// right side: clock (+ pause indicator)
 	clock := time.Now().Format("15:04:05")
 	right := styleHeaderVal.Render(clock)
 	if m.snap.Paused {
@@ -693,8 +673,6 @@ func (m Model) renderFooter() string {
 	return line + strings.Repeat(" ", gap) + tail
 }
 
-// ---- shared rendering helpers ----
-
 func fitHeight(s string, h int) string {
 	lines := strings.Split(s, "\n")
 	if len(lines) > h {
@@ -731,7 +709,6 @@ func barString(v, max float64, width int) string {
 	return strings.Repeat("█", n) + strings.Repeat("░", width-n)
 }
 
-// hstack places right next to left, padding/truncating left to leftWidth.
 func hstack(left, right string, leftWidth int) string {
 	l := strings.Split(left, "\n")
 	r := strings.Split(right, "\n")

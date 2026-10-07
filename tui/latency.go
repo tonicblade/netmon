@@ -89,7 +89,6 @@ func (m Model) latencyTable(w, h int, keys []string) string {
 	return strings.Join(lines, "\n")
 }
 
-// latencyAggregate summarizes all targets in one footer line.
 func (m Model) latencyAggregate(keys []string) string {
 	sum := 0.0
 	n := 0
@@ -150,7 +149,6 @@ func (m Model) latencyDetail(w, h int, key string) string {
 	return sb.String()
 }
 
-// pingKeysSorted keeps deterministic ordering for the latency table.
 func sortedPingKeys(m Model) []string {
 	keys := make([]string, 0, len(m.snap.Pings))
 	for k := range m.snap.Pings {

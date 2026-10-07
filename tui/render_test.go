@@ -73,7 +73,7 @@ func fakeModel() Model {
 	for i := 4; i <= 14; i++ {
 		m.traceHops = append(m.traceHops, types.Hop{Num: i + 2})
 	}
-	m.offset[tabTrace] = 12 // stale scroll from a longer run
+	m.offset[tabTrace] = 12
 	return m
 }
 
@@ -101,9 +101,7 @@ func TestRenderTraceStaleOffsetNoPanic(t *testing.T) {
 }
 
 func TestRenderGraphGutterWideningNoPanic(t *testing.T) {
-	// Long y-labels / wide y-values must re-fit the gutter without letting
-	// series columns drift from the grid (regression: index-out-of-range on
-	// the area-fill path).
+
 	ts := types.NewTimeSeries("t", "bps", 100)
 	now := time.Now()
 	for i := 0; i < 200; i++ {

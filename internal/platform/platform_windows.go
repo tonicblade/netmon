@@ -24,8 +24,6 @@ func newCollector() Collector { return &winCollector{} }
 
 type winCollector struct{}
 
-// ---- interfaces & counters: GetIfTable2Ex ----
-
 func (c *winCollector) Interfaces() ([]types.InterfaceInfo, error) {
 	rows, err := ifTable()
 	if err != nil {
@@ -149,13 +147,13 @@ func classifyWinKind(ifType uint32, alias string) string {
 		return "tunnel"
 	}
 	switch ifType {
-	case 6: // IF_TYPE_ETHERNET_CSMACD
+	case 6:
 		return "eth"
-	case 71: // IF_TYPE_IEEE80211
+	case 71:
 		return "wifi"
-	case 24: // IF_TYPE_SOFTWARE_LOOPBACK
+	case 24:
 		return "loop"
-	case 131, 134: // IF_TYPE_TUNNEL / PPP
+	case 131, 134:
 		return "tunnel"
 	}
 	return "other"
@@ -168,8 +166,6 @@ func fmtMac(b []byte) string {
 	}
 	return strings.Join(parts, ":")
 }
-
-// ---- routes: GetIpForwardTable2 ----
 
 func (c *winCollector) Routes() ([]types.Route, error) {
 	nameByID := map[int]string{}
@@ -253,8 +249,6 @@ func sockaddrInetString(sa windows.RawSockaddrInet) string {
 	return ""
 }
 
-// ---- connections: GetExtendedTcpTable / GetExtendedUdpTable ----
-
 const (
 	afInet              = 2
 	afInet6             = 23
@@ -276,7 +270,7 @@ var (
 
 func getExtendedTable(proc *syscall.LazyProc, af uint32, class uint32) ([]byte, error) {
 	var size uint32
-	// first call: size query (returns ERROR_INSUFFICIENT_BUFFER = 122)
+
 	r, _, _ := proc.Call(0, uintptr(unsafe.Pointer(&size)), 1, uintptr(af), uintptr(class), 0)
 	if size == 0 {
 		return nil, fmt.Errorf("getextendedtable: size query failed (%d)", r)
@@ -284,7 +278,7 @@ func getExtendedTable(proc *syscall.LazyProc, af uint32, class uint32) ([]byte, 
 	buf := make([]byte, size)
 	r, _, _ = proc.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)), 1, uintptr(af), uintptr(class), 0)
 	if r != 0 {
-		// retry once if the table grew
+
 		buf = make([]byte, size)
 		r, _, _ = proc.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)), 1, uintptr(af), uintptr(class), 0)
 		if r != 0 {
@@ -404,7 +398,6 @@ func fmtV6(b []byte) string {
 	return net.IP(b).String()
 }
 
-// MIB_TCP_STATE enum from iphlpapi.h (GetExtendedTcpTable reports these).
 var tcpStateNames = map[uint32]string{
 	1: "CLOSED", 2: "LISTEN", 3: "SYN_SENT", 4: "SYN_RECV",
 	5: "ESTABLISHED", 6: "FIN_WAIT1", 7: "FIN_WAIT2", 8: "CLOSE_WAIT",
@@ -439,8 +432,7 @@ func processName(pid int) string {
 	if h != 0 {
 		buf := make([]uint16, 1024)
 		size := uint32(len(buf))
-		// PROCESS_NAME_NATIVE works with limited-info handles and does not
-		// require same-session elevation the way the WIN32 path does.
+
 		for _, dwFlags := range []uint32{1, 0} {
 			r, _, _ := procQueryImageName.Call(h, uintptr(dwFlags),
 				uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
@@ -462,8 +454,6 @@ func processName(pid int) string {
 	procCacheMu.Unlock()
 	return name
 }
-
-// ---- misc ----
 
 func hostname() string {
 	h, err := os.Hostname()

@@ -1,5 +1,3 @@
-// Package network implements the active diagnostic engines: ping (latency),
-// traceroute (MTR-style) and DNS queries. The CLI and the TUI share it.
 package network
 
 import (
@@ -15,7 +13,6 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-// Method identifies how probes are sent.
 type Method string
 
 const (
@@ -23,11 +20,8 @@ const (
 	MethodTCP  Method = "tcp"
 )
 
-// ErrNoMethod is returned when no probe method is available.
 var ErrNoMethod = errors.New("no usable probe method (ICMP permission denied and TCP fallback unavailable)")
 
-// Pinger probes a single target. It is NOT safe for concurrent probes;
-// use one Pinger per goroutine.
 type Pinger struct {
 	target string
 	ip     net.IP
@@ -39,9 +33,6 @@ type Pinger struct {
 	conn *icmp.PacketConn
 }
 
-// NewPinger resolves target and picks the best probe method:
-// privileged ICMP first, unprivileged ICMP datagram socket second,
-// TCP connect timing as the universal fallback.
 func NewPinger(target string, tcpPort int) (*Pinger, error) {
 	if tcpPort <= 0 {
 		tcpPort = 443
@@ -77,8 +68,6 @@ func (p *Pinger) Close() error {
 	return nil
 }
 
-// Probe sends one request and waits up to timeout. Returns the round-trip
-// time; an error means the probe was lost.
 func (p *Pinger) Probe(timeout time.Duration) (time.Duration, error) {
 	if p.method == MethodTCP {
 		return p.probeTCP(timeout)
@@ -93,7 +82,7 @@ func (p *Pinger) probeTCP(timeout time.Duration) (time.Duration, error) {
 	elapsed := time.Since(start)
 	if err != nil {
 		if isRefused(err) {
-			// The host answered with RST: reachable, the port is just closed.
+
 			return elapsed, nil
 		}
 		return 0, err
@@ -145,7 +134,7 @@ func (p *Pinger) probeICMP(timeout time.Duration) (time.Duration, error) {
 		if err != nil {
 			return 0, err
 		}
-		rm, err := icmp.ParseMessage(1, rb[:n]) // 1 = IPPROTO_ICMP
+		rm, err := icmp.ParseMessage(1, rb[:n])
 		if err != nil {
 			continue
 		}
@@ -160,7 +149,6 @@ func (p *Pinger) probeICMP(timeout time.Duration) (time.Duration, error) {
 	}
 }
 
-// resolveIPv4 resolves a host to an IPv4 address.
 func resolveIPv4(host string) (net.IP, error) {
 	if ip := net.ParseIP(host); ip != nil {
 		if v4 := ip.To4(); v4 != nil {
@@ -180,7 +168,6 @@ func resolveIPv4(host string) (net.IP, error) {
 	return nil, fmt.Errorf("no IPv4 address for %s", host)
 }
 
-// PingOnce is the convenience one-shot used by the CLI.
 func PingOnce(target string, port int, timeout time.Duration) (time.Duration, Method, error) {
 	p, err := NewPinger(target, port)
 	if err != nil {
@@ -191,8 +178,6 @@ func PingOnce(target string, port int, timeout time.Duration) (time.Duration, Me
 	return d, p.Method(), err
 }
 
-// PingStream runs probes on an interval until ctx is done, invoking fn with
-// each result. Used by CLI watch modes.
 func PingStream(ctx context.Context, target string, port int, interval, timeout time.Duration, fn func(time.Duration, error)) error {
 	p, err := NewPinger(target, port)
 	if err != nil {

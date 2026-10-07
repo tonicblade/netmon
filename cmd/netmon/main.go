@@ -1,13 +1,3 @@
-// Command netmon is a network monitoring CLI and TUI.
-//
-//	netmon                          live TUI dashboard
-//	netmon ping <host> [flags]      continuous latency probe
-//	netmon trace <host> [flags]     MTR-style traceroute
-//	netmon dns <name> [flags]       DNS lookup + resolver benchmark
-//	netmon interfaces [--json]      network interface inventory
-//	netmon connections [flags]      active sockets
-//	netmon routes [--json]          routing table
-//	netmon stats [--watch D]        live aggregate stats
 package main
 
 import (
@@ -97,8 +87,6 @@ func splitConfigFlag(args []string) (string, []string) {
 	return "", args
 }
 
-// ---- TUI ----
-
 func runTUI(cfg *config.Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -113,17 +101,12 @@ func runTUI(cfg *config.Config) error {
 	return tui.Run(ctx, mon, cfg)
 }
 
-// ---- shared helpers ----
-
 func mainCtx() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt)
 }
 
-// flagBools lists flags that take no value but consume errors we accept.
 var flagBools = map[string]bool{"json": true, "bench": true}
 
-// parseInterspersed parses flags that may appear before or after positional
-// arguments (Go's flag package stops at the first positional otherwise).
 func parseInterspersed(fs *flag.FlagSet, args []string) error {
 	var flags, pos []string
 	i := 0
@@ -203,8 +186,6 @@ func printJSON(v interface{}) error {
 	return enc.Encode(v)
 }
 
-// ---- ping ----
-
 func cmdPing(cfg *config.Config, args []string) error {
 	fs := flag.NewFlagSet("ping", flag.ContinueOnError)
 	count := fs.Int("count", 0, "stop after N probes (default: run until interrupted)")
@@ -277,7 +258,6 @@ func cmdPing(cfg *config.Config, args []string) error {
 		return err
 	}
 
-	// summary
 	var rtts []float64
 	lost := 0
 	for _, p := range probes {
@@ -310,8 +290,6 @@ func cmdPing(cfg *config.Config, args []string) error {
 	}
 	return nil
 }
-
-// ---- trace ----
 
 func cmdTrace(cfg *config.Config, args []string) error {
 	fs := flag.NewFlagSet("trace", flag.ContinueOnError)
@@ -383,8 +361,7 @@ func cmdTrace(cfg *config.Config, args []string) error {
 	}
 
 	if !*asJSON && dataLines > 0 {
-		// redraw the whole table so reverse-DNS hostnames from the final
-		// update are visible (mtr-style in-place refresh).
+
 		for i := 0; i < dataLines; i++ {
 			fmt.Print("\x1b[1A\x1b[2K")
 		}
@@ -400,8 +377,6 @@ func cmdTrace(cfg *config.Config, args []string) error {
 	}
 	return nil
 }
-
-// ---- dns ----
 
 func cmdDNS(cfg *config.Config, args []string) error {
 	fs := flag.NewFlagSet("dns", flag.ContinueOnError)
@@ -461,8 +436,6 @@ func cmdDNS(cfg *config.Config, args []string) error {
 	return nil
 }
 
-// ---- interfaces ----
-
 func cmdInterfaces(cfg *config.Config, args []string) error {
 	fs := flag.NewFlagSet("interfaces", flag.ContinueOnError)
 	asJSON := fs.Bool("json", false, "emit JSON")
@@ -502,8 +475,6 @@ func cmdInterfaces(cfg *config.Config, args []string) error {
 	printTable([]string{"NAME", "KIND", "STATE", "MTU", "RX TOTAL", "TX TOTAL", "MAC", "ADDRESSES"}, rows)
 	return nil
 }
-
-// ---- connections ----
 
 func cmdConnections(cfg *config.Config, args []string) error {
 	fs := flag.NewFlagSet("connections", flag.ContinueOnError)
@@ -553,8 +524,6 @@ func cmdConnections(cfg *config.Config, args []string) error {
 	return nil
 }
 
-// ---- routes ----
-
 func cmdRoutes(cfg *config.Config, args []string) error {
 	fs := flag.NewFlagSet("routes", flag.ContinueOnError)
 	asJSON := fs.Bool("json", false, "emit JSON")
@@ -589,8 +558,6 @@ func cmdRoutes(cfg *config.Config, args []string) error {
 	printTable([]string{"FAMILY", "DESTINATION", "GENMASK", "GATEWAY", "METRIC", "IFACE", "FLAGS", "DEFAULT"}, rows)
 	return nil
 }
-
-// ---- stats ----
 
 func cmdStats(cfg *config.Config, args []string) error {
 	fs := flag.NewFlagSet("stats", flag.ContinueOnError)
@@ -644,7 +611,7 @@ func cmdStats(cfg *config.Config, args []string) error {
 	}
 
 	if *watch <= 0 {
-		time.Sleep(2 * time.Second) // let collectors get one sample
+		time.Sleep(2 * time.Second)
 		emit()
 		return nil
 	}
@@ -661,8 +628,6 @@ func cmdStats(cfg *config.Config, args []string) error {
 		}
 	}
 }
-
-// ---- help ----
 
 func shortHelp() string {
 	return `usage:

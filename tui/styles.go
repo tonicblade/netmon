@@ -6,7 +6,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Tokyo-night inspired palette.
 var (
 	cText    = lipgloss.Color("#C0CAF5")
 	cDim     = lipgloss.Color("#565F89")
@@ -80,9 +79,6 @@ var (
 	styleHelpDesc = lipgloss.NewStyle().Foreground(cText)
 )
 
-// panel renders a bordered panel with a title embedded in the top border.
-// w and h are the outer dimensions including the border; the body is laid out
-// at w-4 columns and h-2 rows (1 border + 1 space padding per side).
 func panel(title string, w, h int, body string) string {
 	if w < 5 {
 		w = 5
@@ -90,8 +86,8 @@ func panel(title string, w, h int, body string) string {
 	if h < 3 {
 		h = 3
 	}
-	innerW := w - 2 // between the two vertical borders
-	rows := h - 2   // between top and bottom borders
+	innerW := w - 2
+	rows := h - 2
 	contentW := innerW - 2
 	if contentW < 0 {
 		contentW = 0
@@ -100,7 +96,6 @@ func panel(title string, w, h int, body string) string {
 	border := lipgloss.NewStyle().Foreground(cBorder)
 	var b strings.Builder
 
-	// top border with centered title
 	t := " " + title + " "
 	if lipgloss.Width(t) > innerW-1 {
 		t = truncateTo(t, innerW-2) + " "
@@ -139,25 +134,22 @@ func panel(title string, w, h int, body string) string {
 	return b.String()
 }
 
-// panelNoBorder renders a titled block without a border (for simple sections).
 func sectionTitle(title string) string {
 	return stylePanelTitle.Render(title)
 }
 
 func levelStyle(level int) lipgloss.Style {
 	switch level {
-	case 1: // ok
+	case 1:
 		return styleOK
-	case 2: // warn
+	case 2:
 		return styleWarn
-	case 3: // error
+	case 3:
 		return styleError
 	}
 	return styleInfo
 }
 
-// levelGlyph returns a short level tag padded to 2 display columns, so
-// "OK", "W ", "E " and "I " all leave the same gap for the following text.
 func levelGlyph(level int) string {
 	var g string
 	switch level {

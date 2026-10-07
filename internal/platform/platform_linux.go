@@ -19,8 +19,6 @@ func newCollector() Collector { return &linuxCollector{} }
 
 type linuxCollector struct{}
 
-// ---- interfaces ----
-
 func (c *linuxCollector) Interfaces() ([]types.InterfaceInfo, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -88,8 +86,6 @@ func classifyLinuxKind(name string, flags net.Flags) string {
 	}
 }
 
-// ---- counters: /proc/net/dev ----
-
 func (c *linuxCollector) InterfaceStats() ([]types.InterfaceStats, error) {
 	f, err := os.Open("/proc/net/dev")
 	if err != nil {
@@ -100,7 +96,7 @@ func (c *linuxCollector) InterfaceStats() ([]types.InterfaceStats, error) {
 	now := time.Now()
 	var out []types.InterfaceStats
 	sc := bufio.NewScanner(f)
-	// first two lines are headers
+
 	for i := 0; sc.Scan(); i++ {
 		if i < 2 {
 			continue
@@ -135,12 +131,9 @@ func (c *linuxCollector) InterfaceStats() ([]types.InterfaceStats, error) {
 	return out, sc.Err()
 }
 
-// ---- routes ----
-
 func (c *linuxCollector) Routes() ([]types.Route, error) {
 	var routes []types.Route
 
-	// IPv4: /proc/net/route
 	if f, err := os.Open("/proc/net/route"); err == nil {
 		sc := bufio.NewScanner(f)
 		first := true
@@ -170,7 +163,6 @@ func (c *linuxCollector) Routes() ([]types.Route, error) {
 		f.Close()
 	}
 
-	// IPv6: /proc/net/ipv6_route
 	if f, err := os.Open("/proc/net/ipv6_route"); err == nil {
 		sc := bufio.NewScanner(f)
 		for sc.Scan() {
@@ -203,7 +195,6 @@ func (c *linuxCollector) Routes() ([]types.Route, error) {
 	return routes, nil
 }
 
-// hexIP parses /proc/net/route's little-endian hex IPv4 into dotted form.
 func hexIP(h string) string {
 	v, err := strconv.ParseUint(h, 16, 32)
 	if err != nil {
@@ -220,7 +211,7 @@ func hexV6(h string) string {
 	for i := 0; i < 32; i += 4 {
 		groups = append(groups, h[i:i+4])
 	}
-	// /proc/net/ipv6_route is already in network order nibble groups
+
 	ip := net.ParseIP(strings.Join(groups, ":"))
 	if ip == nil {
 		return h
@@ -232,8 +223,6 @@ func hexInt(h string) int {
 	v, _ := strconv.ParseUint(h, 16, 32)
 	return int(v)
 }
-
-// ---- connections ----
 
 func (c *linuxCollector) Connections() ([]types.Connection, error) {
 	var conns []types.Connection
@@ -316,7 +305,7 @@ func decodeAddr(s string, v6 bool) string {
 		if err != nil {
 			return s
 		}
-		// kernel stores 32-bit words little-endian
+
 		b[(i/4)*4+3-(i%4)] = byte(byteVal)
 	}
 	ip := net.IP(b)
@@ -347,7 +336,6 @@ func tcpState(hexState string, tcp bool) string {
 	return "UNKNOWN"
 }
 
-// attachProcessInfo maps sockets to owning processes via /proc/<pid>/fd.
 func attachProcessInfo(conns []types.Connection) {
 	pids, err := os.ReadDir("/proc")
 	if err != nil {
@@ -385,15 +373,11 @@ func attachProcessInfo(conns []types.Connection) {
 		}
 	}
 
-	// The connection list built earlier did not keep inodes, so re-read
-	// /proc/net files including the inode column and match by address pair.
 	inodeMap := make(map[string]sockRef)
 	for inode, ref := range sockToProc {
 		inodeMap[inode] = ref
 	}
 
-	// Re-derive: match by socket address pairs is unreliable; instead redo the
-	// parse including inode for TCP only.
 	for _, spec := range []struct {
 		path  string
 		proto string
@@ -444,8 +428,6 @@ func readProcName(pid int) string {
 	}
 	return strings.TrimSpace(string(b))
 }
-
-// ---- helpers ----
 
 func readIntFile(path string) int {
 	b, err := os.ReadFile(path)

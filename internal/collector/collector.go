@@ -1,12 +1,3 @@
-// Package collector orchestrates the independent metric collectors and owns
-// the state store the TUI and CLI read from.
-//
-// Each collector runs on its own ticker (never one global loop):
-//
-//	InterfaceCollector  250ms  -> counters, rates, series
-//	PingCollector       1s     -> latency stats per target
-//	ConnectionCollector 2s     -> sockets
-//	RouteCollector      10s    -> routing table
 package collector
 
 import (
@@ -29,12 +20,11 @@ import (
 
 const (
 	maxEvents      = 300
-	pingWindow     = 300   // samples per target used for stats
-	seriesCapIface = 14400 // ~1h at 250ms
-	seriesCapPing  = 3600  // ~1h at 1s
+	pingWindow     = 300
+	seriesCapIface = 14400
+	seriesCapPing  = 3600
 )
 
-// Snapshot is a consistent copy of everything the views need.
 type Snapshot struct {
 	Host        types.HostInfo
 	Generated   time.Time
@@ -55,7 +45,6 @@ type Snapshot struct {
 	Paused      bool
 }
 
-// Monitor runs the collectors and stores their output.
 type Monitor struct {
 	cfg   *config.Config
 	plat  platform.Collector
@@ -64,7 +53,7 @@ type Monitor struct {
 	mu           sync.RWMutex
 	snap         Snapshot
 	prevCounters map[string]types.InterfaceStats
-	pingWindow   map[string][]float64 // recent RTTs (ms) per target key
+	pingWindow   map[string][]float64
 	alertActive  map[string]bool
 	pingers      map[string]*network.Pinger
 	targets      []types.PingTarget
@@ -72,8 +61,8 @@ type Monitor struct {
 	dnsMeasured  bool
 	paused       bool
 
-	bwDropTicks int // consecutive ticks meeting the bandwidth-drop condition
-	bwOKTicks   int // consecutive ticks of normal traffic (for recovery)
+	bwDropTicks int
+	bwOKTicks   int
 
 	events []types.Event
 
@@ -81,7 +70,6 @@ type Monitor struct {
 	wg   sync.WaitGroup
 }
 
-// New builds a Monitor. Call Start to launch collectors.
 func New(cfg *config.Config) (*Monitor, error) {
 	plat := platform.New()
 	m := &Monitor{
@@ -111,8 +99,6 @@ func New(cfg *config.Config) (*Monitor, error) {
 	return m, nil
 }
 
-// withGatewayTarget prepends the default gateway as a latency target unless
-// it is already configured.
 func (m *Monitor) withGatewayTarget() []types.PingTarget {
 	routes, err := m.plat.Routes()
 	if err != nil {
@@ -136,10 +122,8 @@ func (m *Monitor) withGatewayTarget() []types.PingTarget {
 	return append([]types.PingTarget{{Name: "Gateway", Address: gw}}, m.targets...)
 }
 
-// Targets returns the effective latency targets.
 func (m *Monitor) Targets() []types.PingTarget { return m.targets }
 
-// Start launches every collector goroutine.
 func (m *Monitor) Start(ctx context.Context) {
 	m.AddEvent(types.LevelOK, "netmon started",
 		fmt.Sprintf("%d latency targets, interfaces every %s", len(m.targets), m.cfg.Refresh.Interface.D()))
@@ -163,7 +147,6 @@ func (m *Monitor) Start(ctx context.Context) {
 	go func() { defer m.wg.Done(); m.hostLoop(ctx) }()
 }
 
-// Stop halts all collectors and closes ping sockets.
 func (m *Monitor) Stop() {
 	select {
 	case <-m.stop:
@@ -180,7 +163,6 @@ func (m *Monitor) Stop() {
 	m.mu.Unlock()
 }
 
-// Snapshot returns a consistent copy of current state.
 func (m *Monitor) Snapshot() Snapshot {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -203,7 +185,7 @@ func (m *Monitor) Snapshot() Snapshot {
 	s.Events = append([]types.Event(nil), m.events...)
 	s.Health = m.snap.Health
 	s.Paused = m.paused
-	// Rx/Tx/series pointers are safe: TimeSeries is internally locked.
+
 	return s
 }
 
@@ -215,7 +197,6 @@ func copySeriesMap(in map[string]*types.TimeSeries) map[string]*types.TimeSeries
 	return out
 }
 
-// TogglePause freezes/unfreezes updates and returns the new state.
 func (m *Monitor) TogglePause() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -228,14 +209,12 @@ func (m *Monitor) TogglePause() bool {
 	return m.paused
 }
 
-// Paused reports the pause state.
 func (m *Monitor) Paused() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.paused
 }
 
-// AddEvent appends an event to the timeline (thread-safe).
 func (m *Monitor) AddEvent(level types.Level, text, detail string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -251,7 +230,6 @@ func (m *Monitor) addEventLocked(level types.Level, text, detail string) {
 	}
 }
 
-// RecordDNS feeds a DNS result into the health score and event timeline.
 func (m *Monitor) RecordDNS(res types.DNSResult) {
 	m.mu.Lock()
 	if res.Err == "" {
@@ -268,8 +246,6 @@ func (m *Monitor) RecordDNS(res types.DNSResult) {
 	}
 	m.recomputeHealth()
 }
-
-// ---- interface collector ----
 
 func (m *Monitor) ifaceLoop(ctx context.Context) {
 	interval := m.cfg.Refresh.Interface.D()
@@ -308,8 +284,6 @@ func (m *Monitor) refreshInterfaces() {
 	m.mu.Unlock()
 }
 
-// mergeInfos converts static interface info into snapshot rows (counters
-// are filled in by the next tick).
 func mergeInfos(infos []types.InterfaceInfo) []types.InterfaceSnapshot {
 	out := make([]types.InterfaceSnapshot, 0, len(infos))
 	for _, i := range infos {
@@ -328,14 +302,13 @@ func (m *Monitor) collectInterfaces(now time.Time, fallbackInterval time.Duratio
 	defer m.mu.Unlock()
 
 	if m.paused {
-		// keep deltas clean while frozen
+
 		for _, s := range stats {
 			m.prevCounters[s.Name] = s
 		}
 		return
 	}
 
-	// carry previous snapshot data (info + counters)
 	prevByName := map[string]types.InterfaceSnapshot{}
 	for _, is := range m.snap.Interfaces {
 		prevByName[is.Info.Name] = is
@@ -381,7 +354,6 @@ func (m *Monitor) collectInterfaces(now time.Time, fallbackInterval time.Duratio
 		}
 		newSnap = append(newSnap, is)
 
-		// link-state transitions become events
 		if prev, had := prevByName[cur.Name]; had && prev.Info.IsUp != is.Info.IsUp {
 			lvl := types.LevelWarn
 			state := "down"
@@ -397,7 +369,6 @@ func (m *Monitor) collectInterfaces(now time.Time, fallbackInterval time.Duratio
 			totalTx += txBps
 		}
 
-		// per-interface series (skip loopback noise)
 		if !is.Info.IsLoop {
 			rx := m.snap.IfaceRx[cur.Name]
 			if rx == nil {
@@ -421,9 +392,6 @@ func (m *Monitor) collectInterfaces(now time.Time, fallbackInterval time.Duratio
 	m.snap.Tx.AppendAt(now, totalTx)
 	m.snap.Generated = now
 
-	// bandwidth drop alert: compare against the sustained recent average so a
-	// single burst doesn't define "normal". Holds m.mu — transition runs
-	// unlocked itself.
 	m.applyBandwidthAlert(totalRx + totalTx)
 }
 
@@ -433,8 +401,6 @@ func infoFor(prev map[string]types.InterfaceSnapshot, name string) types.Interfa
 	}
 	return types.InterfaceInfo{Name: name}
 }
-
-// ---- ping collector ----
 
 func targetKey(t types.PingTarget) string {
 	if t.Name != "" {
@@ -527,7 +493,6 @@ func (m *Monitor) probeOnce(p *network.Pinger, t types.PingTarget, key string, t
 	}
 	st.LossPct = float64(st.Lost) / float64(st.Sent) * 100
 
-	// stats over the recent window of successful RTTs
 	if len(w) > 0 {
 		st.Avg = types.Avg(w)
 		st.Min = types.Min(w)
@@ -538,7 +503,6 @@ func (m *Monitor) probeOnce(p *network.Pinger, t types.PingTarget, key string, t
 
 	m.snap.Pings[key] = st
 
-	// latency series (points only on success so gaps show as gaps)
 	if _, has := m.pingLatencySeries(key); !has {
 		m.snap.PingLatency[key] = types.NewTimeSeries(st.Name+" latency", "ms", seriesCapPing)
 	}
@@ -547,7 +511,6 @@ func (m *Monitor) probeOnce(p *network.Pinger, t types.PingTarget, key string, t
 	}
 	m.mu.Unlock()
 
-	// alerts + health outside the lock
 	m.checkPingAlerts(key, st)
 	m.recomputeHealth()
 }
@@ -556,8 +519,6 @@ func (m *Monitor) pingLatencySeries(key string) (*types.TimeSeries, bool) {
 	s, ok := m.snap.PingLatency[key]
 	return s, ok
 }
-
-// ---- connections ----
 
 func (m *Monitor) connLoop(ctx context.Context) {
 	interval := m.cfg.Refresh.Connections.D()
@@ -606,8 +567,6 @@ func (m *Monitor) refreshConnections() {
 	m.mu.Unlock()
 }
 
-// ---- routes ----
-
 func (m *Monitor) routeLoop(ctx context.Context) {
 	interval := m.cfg.Refresh.Routes.D()
 	if interval <= 0 {
@@ -638,8 +597,6 @@ func (m *Monitor) refreshRoutes() {
 	m.mu.Unlock()
 }
 
-// ---- host info ----
-
 func (m *Monitor) hostLoop(ctx context.Context) {
 	t := time.NewTicker(30 * time.Second)
 	defer t.Stop()
@@ -656,8 +613,6 @@ func (m *Monitor) hostLoop(ctx context.Context) {
 		}
 	}
 }
-
-// ---- alerts ----
 
 func (m *Monitor) checkPingAlerts(key string, st types.PingStats) {
 	rule := m.cfg.Rule()
@@ -714,16 +669,12 @@ func (m *Monitor) checkPingAlerts(key string, st types.PingStats) {
 	}
 }
 
-// applyBandwidthAlert transitions the bandwidth-drop alert against the
-// sustained recent average (last 60s), requiring the condition to persist for
-// a few ticks before firing or recovering — so idle moments between bursts
-// don't flip-flop the alert. The caller holds m.mu — do not lock here.
 func (m *Monitor) applyBandwidthAlert(totalBps float64) {
 	rule := m.cfg.Rule()
 	if rule.BandwidthDropPct <= 0 {
 		return
 	}
-	// Reference is the rolling average, not the instantaneous peak.
+
 	ref := m.snap.Rx.Avg(60*time.Second) + m.snap.Tx.Avg(60*time.Second)
 	if ref <= 1000 {
 		return
@@ -732,7 +683,7 @@ func (m *Monitor) applyBandwidthAlert(totalBps float64) {
 	activeNow := dropPct >= rule.BandwidthDropPct
 
 	const (
-		dropTicks    = 6 // ~1.5s at the 250ms interface tick
+		dropTicks    = 6
 		recoverTicks = 4
 	)
 	if activeNow {
@@ -760,7 +711,6 @@ func (m *Monitor) applyBandwidthAlert(totalBps float64) {
 	}
 }
 
-// notify pushes an alert to the optional webhook and log file.
 func (m *Monitor) notify(level types.Level, title, detail string) {
 	if m.cfg.Alerts.Webhook != "" {
 		url := m.cfg.Alerts.Webhook
@@ -791,8 +741,6 @@ func (m *Monitor) notify(level types.Level, title, detail string) {
 		}()
 	}
 }
-
-// ---- health / Net Quality Index ----
 
 func (m *Monitor) recomputeHealth() {
 	m.mu.Lock()
@@ -829,7 +777,6 @@ func (m *Monitor) recomputeHealth() {
 		lossScore = clamp(100-int((types.Avg(loss)/10)*100), 0, 100)
 	}
 
-	// bandwidth: packet drop/error ratio observed right now
 	var drops, pkts float64
 	for _, is := range m.snap.Interfaces {
 		if is.Info.IsLoop {
@@ -862,7 +809,7 @@ func (m *Monitor) recomputeHealth() {
 		"bandwidth": bwScore,
 		"dns":       dnsScore,
 	}
-	// weights: loss and latency matter most (documented in README)
+
 	total := int(float64(latScore)*0.35 + float64(jitScore)*0.15 +
 		float64(lossScore)*0.30 + float64(bwScore)*0.10 + float64(dnsScore)*0.10)
 
@@ -883,8 +830,6 @@ func clamp(v, lo, hi int) int {
 	return v
 }
 
-// ---- small helpers ----
-
 func fmtMs(v float64) string { return fmt.Sprintf("%.2fms", v) }
 
 func fmtBps(v float64) string {
@@ -900,7 +845,6 @@ func fmtBps(v float64) string {
 	}
 }
 
-// SortConnections applies a sort key used by both CLI and TUI.
 func SortConnections(conns []types.Connection, key string, desc bool) {
 	less := func(a, b types.Connection) bool { return false }
 	switch key {

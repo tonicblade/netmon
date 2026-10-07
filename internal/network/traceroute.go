@@ -15,13 +15,12 @@ import (
 	"netmon/pkg/types"
 )
 
-// TraceOptions tunes an MTR-style traceroute run.
 type TraceOptions struct {
 	Target       string
 	MaxHops      int
 	ProbesPerHop int
-	Timeout      time.Duration // per probe
-	Interval     time.Duration // between probes
+	Timeout      time.Duration
+	Interval     time.Duration
 }
 
 func (o *TraceOptions) withDefaults() TraceOptions {
@@ -48,9 +47,6 @@ type traceProbe struct {
 	from     net.IP
 }
 
-// Trace runs an interactive traceroute. onUpdate is invoked after every
-// probe and at completion so a TUI can render progressively.
-// Requires raw ICMP privileges (elevated/admin); the error explains this.
 func Trace(ctx context.Context, opts TraceOptions, onUpdate func(hops []types.Hop, reached bool)) ([]types.Hop, error) {
 	o := opts.withDefaults()
 	target, err := resolveIPv4(o.Target)
@@ -62,7 +58,7 @@ func Trace(ctx context.Context, opts TraceOptions, onUpdate func(hops []types.Ho
 	if err != nil {
 		return nil, fmt.Errorf("traceroute needs raw ICMP privileges (run elevated): %w", err)
 	}
-	_ = rawMode // raw sockets get real ICMP; dgram sockets match by seq only
+	_ = rawMode
 	defer conn.Close()
 
 	p4 := conn.IPv4PacketConn()
@@ -108,8 +104,7 @@ func Trace(ctx context.Context, opts TraceOptions, onUpdate func(hops []types.Ho
 			switch msg.Type {
 			case ipv4.ICMPTypeEchoReply:
 				echo, good := msg.Body.(*icmp.Echo)
-				// Windows rewrites the Identifier field of its ICMP echo
-				// sockets, so match on sequence number only (same as ping).
+
 				if !good {
 					continue
 				}
@@ -171,7 +166,6 @@ func Trace(ctx context.Context, opts TraceOptions, onUpdate func(hops []types.Ho
 
 			readLoop(time.Now().Add(o.Timeout))
 
-			// inter-probe pacing minus time already spent reading
 			remaining := o.Interval - time.Since(p.sent)
 			if remaining > 0 {
 				select {
@@ -182,7 +176,6 @@ func Trace(ctx context.Context, opts TraceOptions, onUpdate func(hops []types.Ho
 			}
 		}
 
-		// fold this hop's probes into the hop record
 		var rtts []float64
 		lost := 0
 		h := &hops[hop-1]
@@ -222,7 +215,6 @@ func Trace(ctx context.Context, opts TraceOptions, onUpdate func(hops []types.Ho
 		}
 	}
 
-	// reverse DNS, best effort with a short overall budget
 	resolveHostnames(hops, 800*time.Millisecond)
 	if onUpdate != nil {
 		onUpdate(finalize(hops, reached), reached)
@@ -230,7 +222,6 @@ func Trace(ctx context.Context, opts TraceOptions, onUpdate func(hops []types.Ho
 	return finalize(hops, reached), nil
 }
 
-// bestAddr returns the most common responder for the hop probes.
 func bestAddr(probes []*traceProbe, fallback string) string {
 	counts := map[string]int{}
 	for _, p := range probes {
@@ -259,8 +250,6 @@ func finalize(hops []types.Hop, _ bool) []types.Hop {
 	return out
 }
 
-// innerEchoSeq extracts (id, seq) from the ICMP error payload, which holds
-// the original IP header followed by 8 bytes of the offending datagram.
 func innerEchoSeq(msg *icmp.Message) (uint16, int, bool) {
 	var data []byte
 	switch b := msg.Body.(type) {
@@ -279,9 +268,8 @@ func innerEchoSeq(msg *icmp.Message) (uint16, int, bool) {
 		return 0, 0, false
 	}
 	inner := data[ihl : ihl+8]
-	// inner is the first 8 bytes of the offending ICMP message: echo header.
-	// type(0) code(1) csum(2..3) id(4..5) seq(6..7)
-	if inner[0] != 8 { // not an echo request
+
+	if inner[0] != 8 {
 		return 0, 0, false
 	}
 	id := binary.BigEndian.Uint16(inner[4:6])
@@ -289,9 +277,6 @@ func innerEchoSeq(msg *icmp.Message) (uint16, int, bool) {
 	return id, int(seq), true
 }
 
-// openICMP prefers a raw ICMP socket and falls back to the unprivileged
-// datagram socket (Windows delivers ICMP errors on those; Linux usually
-// does not, in which case every hop times out and the UI shows a hint).
 func openICMP() (*icmp.PacketConn, bool, error) {
 	if c, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0"); err == nil {
 		return c, true, nil
@@ -302,7 +287,6 @@ func openICMP() (*icmp.PacketConn, bool, error) {
 	return nil, false, fmt.Errorf("permission denied opening ICMP socket")
 }
 
-// resolveHostnames does reverse lookups with a bounded overall budget.
 func resolveHostnames(hops []types.Hop, budget time.Duration) {
 	type res struct {
 		idx  int
@@ -333,7 +317,7 @@ func resolveHostnames(hops []types.Hop, budget time.Duration) {
 				hops[r.idx].Host = r.host
 			}
 		case <-done:
-			// drain what's left
+
 			for {
 				select {
 				case r := <-ch:

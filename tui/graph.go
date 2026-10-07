@@ -11,22 +11,20 @@ import (
 	"netmon/pkg/types"
 )
 
-// GraphSeries is one plotted series.
 type GraphSeries struct {
 	Data []types.DataPoint
 	Line lipgloss.Color
-	Fill lipgloss.Color // empty = no area fill
-	Max  bool           // downsample with peak instead of average
+	Fill lipgloss.Color
+	Max  bool
 }
 
-// GraphOptions configures the renderer.
 type GraphOptions struct {
-	Width   int // total width including the y-axis gutter
-	Height  int // total height including axis and label rows
+	Width   int
+	Height  int
 	YFormat func(float64) string
-	Max     float64 // force y-max (0 = auto)
-	XLeft   string  // e.g. "-5m"
-	XRight  string  // e.g. "now"
+	Max     float64
+	XLeft   string
+	XRight  string
 }
 
 type cell struct {
@@ -35,8 +33,6 @@ type cell struct {
 	set   bool
 }
 
-// RenderGraph draws line/area charts with box-drawing corners, a y-axis
-// gutter and an x-axis, in the spirit of btop.
 func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 	if opts.Width < 6 || opts.Height < 3 {
 		return ""
@@ -55,7 +51,6 @@ func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 		return ""
 	}
 
-	// ---- y-scale and axis gutter ----
 	rawMax := 0.0
 	for _, s := range series {
 		for _, p := range s.Data {
@@ -80,13 +75,11 @@ func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 		}
 		return g
 	}
-	plotW := opts.Width - gutterWidth() - 1 // -1 for the '┤'
+	plotW := opts.Width - gutterWidth() - 1
 	if plotW < 4 {
 		return ""
 	}
 
-	// ---- downsample to the final column count (two passes so the y-axis
-	// labels from real, downsampled data can widen the gutter again) ----
 	seriesVals := make([][]float64, len(series))
 	for i, s := range series {
 		seriesVals[i] = downsample(s.Data, plotW, s.Max)
@@ -118,7 +111,7 @@ func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 		}
 	}
 	gutter := gutterWidth()
-	// never let series columns drift from the grid width
+
 	for i := range seriesVals {
 		seriesVals[i] = fitBins(seriesVals[i], plotW)
 	}
@@ -146,7 +139,6 @@ func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 		grid[r] = make([]cell, plotW)
 	}
 
-	// ---- area fills (drawn first, series order; lines win on top) ----
 	for i, s := range series {
 		if s.Fill == "" {
 			continue
@@ -163,7 +155,6 @@ func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 		}
 	}
 
-	// ---- lines ----
 	for i, s := range series {
 		vals := seriesVals[i]
 		if len(vals) != plotW || s.Line == "" {
@@ -183,13 +174,13 @@ func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 			switch {
 			case yb == ya:
 				put(x-1, ya, '─')
-			case yb > ya: // value dropped: ╮ ... ╰
+			case yb > ya:
 				put(x-1, ya, '╮')
 				for r := ya + 1; r < yb; r++ {
 					put(x-1, r, '│')
 				}
 				put(x-1, yb, '╰')
-			default: // value rose: ╯ ... ╭
+			default:
 				put(x-1, ya, '╯')
 				for r := yb + 1; r < ya; r++ {
 					put(x-1, r, '│')
@@ -201,7 +192,6 @@ func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 		put(0, ys[0], '╴')
 	}
 
-	// ---- assemble rows ----
 	labels := map[int]string{}
 	labels[0] = opts.YFormat(yMax)
 	if plotH > 2 {
@@ -219,7 +209,6 @@ func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 		b.WriteString("\n")
 	}
 
-	// axis
 	b.WriteString(strings.Repeat(" ", gutter))
 	b.WriteString("└")
 	b.WriteString(strings.Repeat("─", plotW))
@@ -241,7 +230,6 @@ func RenderGraph(opts GraphOptions, series ...GraphSeries) string {
 	return b.String()
 }
 
-// renderRow run-length encodes a row for styled output.
 func renderRow(cells []cell) string {
 	var b strings.Builder
 	i := 0
@@ -268,7 +256,6 @@ func renderRow(cells []cell) string {
 	return b.String()
 }
 
-// downsample reduces n points into `cols` buckets using avg or peak.
 func downsample(pts []types.DataPoint, cols int, useMax bool) []float64 {
 	if cols <= 0 || len(pts) == 0 {
 		return nil
@@ -279,7 +266,7 @@ func downsample(pts []types.DataPoint, cols int, useMax bool) []float64 {
 			if i < len(pts) {
 				out[i] = pts[i].Value
 			} else {
-				out[i] = pts[len(pts)-1].Value // extend flat to "now"
+				out[i] = pts[len(pts)-1].Value
 			}
 		}
 		return out
@@ -318,8 +305,6 @@ func downsample(pts []types.DataPoint, cols int, useMax bool) []float64 {
 	return out
 }
 
-// fitBins trims or extends a downsample result to exactly n columns so the
-// data width can never drift from the grid width.
 func fitBins(vals []float64, n int) []float64 {
 	if n <= 0 || len(vals) == 0 {
 		return nil
@@ -340,7 +325,6 @@ func fitBins(vals []float64, n int) []float64 {
 	return out
 }
 
-// niceCeil rounds a value up to a friendly axis maximum.
 func niceCeil(v float64) float64 {
 	if v <= 0 {
 		return 1
@@ -365,7 +349,6 @@ func niceCeil(v float64) float64 {
 	return nice * mag
 }
 
-// rangeLabel formats the x-axis left label for a graph window.
 func rangeLabel(d time.Duration) string {
 	switch {
 	case d >= time.Hour:

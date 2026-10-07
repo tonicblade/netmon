@@ -13,17 +13,13 @@ import (
 	"netmon/pkg/types"
 )
 
-// DNSQuery describes one lookup.
 type DNSQuery struct {
-	Name    string // domain to resolve
-	Type    string // A, AAAA, CNAME, MX, TXT, NS — empty means A
-	Server  string // resolver IP; empty = operating system resolver
+	Name    string
+	Type    string
+	Server  string
 	Timeout time.Duration
 }
 
-// Query performs one DNS lookup and returns records plus timing.
-// With Server == "" the OS resolver is used (real system configuration);
-// with a Server set, a direct UDP query is sent to that resolver.
 func Query(ctx context.Context, q DNSQuery) types.DNSResult {
 	if q.Timeout <= 0 {
 		q.Timeout = 3 * time.Second
@@ -181,7 +177,6 @@ func rrString(rr dns.RR) string {
 	}
 }
 
-// Benchmark measures query latency against several resolvers in parallel.
 func Benchmark(ctx context.Context, name string, servers []string, timeout time.Duration) []types.DNSBenchmarkRow {
 	if name == "" {
 		name = "example.com"
@@ -212,7 +207,7 @@ func Benchmark(ctx context.Context, name string, servers []string, timeout time.
 }
 
 func sortRows(rows []types.DNSBenchmarkRow) {
-	// fastest successes first, failures last
+
 	for i := 1; i < len(rows); i++ {
 		for j := i; j > 0; j-- {
 			a, b := rows[j-1], rows[j]

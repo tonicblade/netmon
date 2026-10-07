@@ -42,7 +42,7 @@ func (m Model) renderEvents(w, h int) string {
 	if cursor < 0 {
 		cursor = 0
 	}
-	avail := h - 5 // room for header note, blank, hint
+	avail := h - 5
 	if avail < 1 {
 		avail = 1
 	}
@@ -99,7 +99,7 @@ func (m Model) eventRows(evs []types.Event, w int) []string {
 		rows = append(rows, styleDim.Render(ts)+" "+levelGlyph(int(e.Level))+" "+
 			truncateTo(row, maxInt(0, w-13)))
 	}
-	// newest-first above; reverse for chronological order
+
 	for i, j := 0, len(rows)-1; i < j; i, j = i+1, j-1 {
 		rows[i], rows[j] = rows[j], rows[i]
 	}
@@ -112,7 +112,6 @@ func (m Model) eventDetail(w, h int, all []types.Event, sel types.Event, hasSel 
 	}
 	var out []string
 
-	// level tally across the window
 	counts := map[types.Level]int{}
 	for _, e := range all {
 		counts[e.Level]++
@@ -175,7 +174,6 @@ func levelName(lv types.Level) string {
 	}
 }
 
-// wrapText soft-wraps text to width w.
 func wrapText(s string, w int) []string {
 	if w < 8 {
 		return []string{truncateTo(s, maxInt(w, 1))}

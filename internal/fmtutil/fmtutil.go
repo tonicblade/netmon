@@ -1,4 +1,3 @@
-// Package fmtutil holds small human-formatting helpers shared by CLI and TUI.
 package fmtutil
 
 import (
@@ -8,7 +7,6 @@ import (
 	"time"
 )
 
-// Bps formats bits-per-second: 184.2 Mbps, 1.2 Kbps, 842 bps.
 func Bps(bps float64) string {
 	switch {
 	case bps >= 1_000_000_000:
@@ -22,7 +20,6 @@ func Bps(bps float64) string {
 	}
 }
 
-// BpsAxis formats a compact axis label.
 func BpsAxis(bps float64) string {
 	switch {
 	case bps >= 1_000_000_000:
@@ -36,7 +33,6 @@ func BpsAxis(bps float64) string {
 	}
 }
 
-// Bytes formats bytes-per-second style magnitudes.
 func Bytes(b float64) string {
 	switch {
 	case b >= 1<<30:
@@ -50,7 +46,6 @@ func Bytes(b float64) string {
 	}
 }
 
-// Count formats an integer with thousands separators.
 func Count(n int) string {
 	return Count64(int64(n))
 }
@@ -74,7 +69,6 @@ func Count64(n int64) string {
 	return string(out)
 }
 
-// Ms formats milliseconds compactly.
 func Ms(v float64) string {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
 		return "-"
@@ -89,7 +83,6 @@ func Ms(v float64) string {
 	}
 }
 
-// Uptime formats a duration like 3d 14h.
 func Uptime(d time.Duration) string {
 	if d <= 0 {
 		return "0m"
@@ -107,7 +100,6 @@ func Uptime(d time.Duration) string {
 	}
 }
 
-// Bar renders a proportional block bar of the given width.
 func Bar(v, max float64, width int) string {
 	if width <= 0 {
 		return ""
@@ -126,7 +118,6 @@ func Bar(v, max float64, width int) string {
 	return strings.Repeat("█", filled) + strings.Repeat(" ", width-filled)
 }
 
-// BarChar is like Bar but uses a custom fill rune.
 func BarRune(v, max float64, width int, r rune) string {
 	if width <= 0 {
 		return ""
@@ -139,7 +130,6 @@ func BarRune(v, max float64, width int, r rune) string {
 	return strings.Repeat(string(r), filled) + strings.Repeat(" ", width-filled)
 }
 
-// Pct formats a percentage.
 func Pct(v float64) string {
 	return fmt.Sprintf("%.1f%%", v)
 }

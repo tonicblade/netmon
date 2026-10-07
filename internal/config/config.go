@@ -1,4 +1,3 @@
-// Package config loads netmon's YAML configuration with safe defaults.
 package config
 
 import (
@@ -12,7 +11,6 @@ import (
 	"netmon/pkg/types"
 )
 
-// Duration wraps time.Duration with YAML support for strings like "250ms".
 type Duration time.Duration
 
 func (d *Duration) UnmarshalYAML(node *yaml.Node) error {
@@ -63,8 +61,8 @@ type DNS struct {
 }
 
 type Ping struct {
-	Method  string   `yaml:"method"` // auto | icmp | tcp
-	Port    int      `yaml:"port"`   // tcp fallback port
+	Method  string   `yaml:"method"`
+	Port    int      `yaml:"port"`
 	Timeout Duration `yaml:"timeout"`
 }
 
@@ -77,7 +75,6 @@ type Config struct {
 	Ping    Ping               `yaml:"ping"`
 }
 
-// Default returns the built-in configuration.
 func Default() *Config {
 	return &Config{
 		Refresh: Refresh{
@@ -106,7 +103,6 @@ func Default() *Config {
 	}
 }
 
-// Load reads path, or searches default locations when path is empty.
 func Load(path string) (*Config, error) {
 	cfg := Default()
 	if path == "" {
@@ -185,7 +181,6 @@ func findDefaultPath() string {
 	return ""
 }
 
-// Rule converts config thresholds into the collector's alert rule.
 func (c *Config) Rule() types.AlertRule {
 	return types.AlertRule{
 		LatencyMS:        c.Alerts.Latency,

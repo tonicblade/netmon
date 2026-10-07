@@ -37,7 +37,6 @@ func (m Model) renderDashboard(w, h int) string {
 		return vstack(top, events)
 	}
 
-	// narrow / short: single column stack
 	netH := topH * 55 / 100
 	latH := topH - netH
 	body := vstack(
@@ -47,8 +46,6 @@ func (m Model) renderDashboard(w, h int) string {
 	events = panel("EVENTS", w, eventsH, m.eventsBody(w-4, eventsH-2))
 	return vstack(body, events)
 }
-
-// ---- network panel ----
 
 func (m Model) networkBody(w, h int) string {
 	if w < 20 || h < 4 {
@@ -66,7 +63,6 @@ func (m Model) networkBody(w, h int) string {
 	lossRow := styleDim.Render(fmt.Sprintf("packet loss %.1f%%   range %s   mode %s",
 		loss, rangeLabel(graphRanges[m.graphRangeIdx]), graphModes[m.graphModeIdx]))
 
-	// graph
 	ifaceRows := 5
 	if h < 24 {
 		ifaceRows = 3
@@ -115,9 +111,9 @@ func (m Model) bandwidthGraph(w, h int) string {
 	}
 
 	switch m.graphModeIdx {
-	case 1: // RX
+	case 1:
 		return RenderGraph(opts, GraphSeries{Data: rx, Line: cRXLine, Fill: cRXFill})
-	case 2: // TX
+	case 2:
 		return RenderGraph(opts, GraphSeries{Data: tx, Line: cTXLine, Fill: cTXFill, Max: true})
 	default:
 		return RenderGraph(opts,
@@ -181,8 +177,6 @@ func (m Model) aggregateLatency() (avg, jitter, loss float64) {
 	return avg / float64(n), jitter / float64(n), loss / float64(n)
 }
 
-// ---- latency panel ----
-
 func (m Model) latencyBody(w, h int) string {
 	if w < 20 || h < 3 {
 		return ""
@@ -244,14 +238,12 @@ func (m Model) pingKeys() []string {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	// keep gateway first if present
+
 	sort.SliceStable(keys, func(i, j int) bool {
 		return strings.ToLower(keys[i]) < strings.ToLower(keys[j])
 	})
 	return keys
 }
-
-// ---- health panel ----
 
 func (m Model) healthBody(w, h int) string {
 	if w < 20 || h < 3 {
@@ -299,8 +291,6 @@ func healthPart(name string, v int) string {
 	return styleDim.Render(name) + " " + st.Render(fmt.Sprintf("%d", v))
 }
 
-// ---- events body (shared with the events tab) ----
-
 func (m Model) eventsBody(w, h int) string {
 	evs := m.snap.Events
 	if len(evs) == 0 {
@@ -331,8 +321,6 @@ func (m Model) eventsBody(w, h int) string {
 	return strings.Join(lines, "\n")
 }
 
-// ---- small text helpers ----
-
 func padRight(s string, w int) string {
 	s = truncateTo(s, w)
 	return s + strings.Repeat(" ", maxInt(0, w-lipgloss.Width(s)))
@@ -350,7 +338,7 @@ func truncateTo(s string, w int) string {
 	if lipgloss.Width(s) <= w {
 		return s
 	}
-	// simple rune truncation by display width
+
 	var b strings.Builder
 	width := 0
 	for _, r := range s {

@@ -11,8 +11,6 @@ import (
 	"netmon/internal/config"
 )
 
-// TestLiveAllTabs drives a real monitor through Update/View on every tab to
-// catch panics only live data triggers (growing series, new events, …).
 func TestLiveAllTabs(t *testing.T) {
 	cfg := config.Default()
 	mon, err := collector.New(cfg)
@@ -52,7 +50,6 @@ func TestLiveAllTabs(t *testing.T) {
 		}
 	}
 
-	// small terminal too
 	m.width, m.height = 40, 12
 	for tab := 0; tab < tabCount; tab++ {
 		m.tab = tab

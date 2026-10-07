@@ -12,7 +12,6 @@ import (
 func (m Model) renderDNS(w, h int) string {
 	var lines []string
 
-	// input / prompt line
 	switch m.mode {
 	case inputDNS:
 		lines = append(lines, styleTitle.Render(" QUERY ")+" "+m.input.View())
@@ -35,7 +34,6 @@ func (m Model) renderDNS(w, h int) string {
 		lines = append(lines, styleInfo.Render("benchmarking resolvers..."))
 	}
 
-	// result block
 	res := m.dnsRes
 	if res.Query != "" && !m.dnsLoading {
 		status := styleOK.Render("ok")
@@ -55,7 +53,6 @@ func (m Model) renderDNS(w, h int) string {
 		}
 	}
 
-	// benchmark block
 	if m.dnsBenchLoaded && len(m.dnsBench) > 0 {
 		lines = append(lines, "", styleHeaderRow.Render(
 			padRight("RESOLVER", 26)+padLeft("RTT", 9)+"  STATUS"))

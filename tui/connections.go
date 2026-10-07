@@ -33,7 +33,6 @@ func (m Model) renderConnections(w, h int) string {
 	bodyW := tableW - 4
 	bodyH := h - 2
 
-	// cursor + scroll window
 	if m.cursor[tabConnections] >= len(conns) {
 		m.cursor[tabConnections] = len(conns) - 1
 	}
@@ -150,7 +149,6 @@ func (m Model) connSummary(w, h int, conns []types.Connection) string {
 	return strings.Join(lines, "\n")
 }
 
-// hostOf strips the port (and brackets) from a remote address for grouping.
 func hostOf(addr string) string {
 	i := strings.LastIndex(addr, ":")
 	if i < 0 {
@@ -176,7 +174,6 @@ func joinCounts(m map[string]int, sep string) string {
 	return strings.Join(parts, sep)
 }
 
-// topN formats the N largest items of a key→count map as "n  key" rows.
 func topN(m map[string]int, n int, bullet string) []string {
 	type kv struct {
 		k string
@@ -205,7 +202,6 @@ func topN(m map[string]int, n int, bullet string) []string {
 	return out
 }
 
-// fitLines truncates/limits rows to fit w × h (labels may wrap to 2 lines).
 func fitLines(rows []string, w, h int) []string {
 	out := make([]string, 0, len(rows)+2)
 	for _, r := range rows {

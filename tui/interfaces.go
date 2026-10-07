@@ -92,7 +92,6 @@ func (m Model) ifaceDetail(w, h int, is types.InterfaceSnapshot) string {
 		extra += "  " + styleDim.Render("speed ") + styleText.Render(fmtutil.Bps(float64(inf.Speed)))
 	}
 
-	// per-interface graph
 	graphH := h - 9
 	if graphH < 4 {
 		graphH = 4
@@ -145,7 +144,6 @@ func (m Model) ifaceDetail(w, h int, is types.InterfaceSnapshot) string {
 	return fitWidth(body, w)
 }
 
-// joinScroll renders lines within h rows starting at scroll offset.
 func joinScroll(lines []string, h, offset int) string {
 	if offset < 0 {
 		offset = 0

@@ -11,10 +11,6 @@ import (
 	"netmon/pkg/types"
 )
 
-// Minimal fallback for platforms without a native collector yet (macOS, BSD).
-// Interface discovery works via net.Interfaces; counters/routes/connections
-// report an error rather than shelling out to netstat.
-
 func newCollector() Collector { return &stubCollector{} }
 
 type stubCollector struct{}
